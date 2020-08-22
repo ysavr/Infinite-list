@@ -2,93 +2,69 @@ package com.savr.infinitelist
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.view.View
+import android.os.Handler
 import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import com.savr.infinitelist.model.Users
-import com.savr.infinitelist.model.UsersResponse
-import com.savr.infinitelist.remote.ApiClient
+import com.savr.infinitelist.adapter.MyAdapter
+import com.savr.infinitelist.interfaces.ILoadMore
+import com.savr.infinitelist.model.Item
 import kotlinx.android.synthetic.main.activity_main.*
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import java.util.*
+import kotlin.collections.ArrayList
 
-class MainActivity : AppCompatActivity(), SwipeRefreshLayout.OnRefreshListener {
+class MainActivity : AppCompatActivity(), ILoadMore {
 
-    private lateinit var adapter: UsersAdapter
     private lateinit var layoutManager: LinearLayoutManager
-    private var page = 1
-    private var totalPage = 2
-    private var isLoading = false
+    private var items:MutableList<Item?> = ArrayList()
+    lateinit var adapter:MyAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        random10Data()
+
         layoutManager = LinearLayoutManager(this)
-        swipeRefresh.setOnRefreshListener(this)
-        initView()
-        getUsers(false)
+        recycler.layoutManager = layoutManager
+        adapter = MyAdapter(recycler, this, items)
+        recycler.adapter = adapter
+        adapter.setLoadedMore(this)
+    }
 
-        rvUsers.addOnScrollListener(object : RecyclerView.OnScrollListener(){
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                val visibleItemCount = layoutManager.childCount
-                val pastVisible = layoutManager.findFirstVisibleItemPosition()
-                val total = adapter.itemCount
-                if (!isLoading && page < totalPage) {
-                    if (visibleItemCount + pastVisible >= total) {
-                        page++
-                        getUsers(false)
-                    }
+    private fun random10Data() {
+        for (i in 0..9) {
+            val name = UUID.randomUUID().toString() + " - index $i"
+            val item = Item(name, name.length)
+            items.add(item)
+        }
+    }
+
+    override fun onLoadMore() {
+        if (items.size < 50) {
+            items.add(null)
+            adapter.notifyItemInserted(items.size - 1)
+
+            Handler().postDelayed ({
+                items.removeAt(items.size - 1)
+                adapter.notifyItemRemoved(items.size - 1)
+
+                val index = items.size
+                val end = index+10
+
+                for (i in index until end) {
+                    val name = UUID.randomUUID().toString() + " - index $i"
+                    val item = Item(name, name.length)
+                    items.add(item)
                 }
 
-                super.onScrolled(recyclerView, dx, dy)
-            }
-        })
+                adapter.notifyDataSetChanged()
+                adapter.setLoaded()
+
+            }, 3000)
+
+        } else {
+            Toast.makeText(applicationContext, "End of data", Toast.LENGTH_SHORT).show()
+        }
     }
 
-    private fun getUsers(isOnRefresh: Boolean) {
-        isLoading = true
-        if (!isOnRefresh) progressBar.visibility = View.VISIBLE
-        val params = HashMap<String, String>()
-        params["page"] = page.toString()
-
-        ApiClient.instance.getUsers(params).enqueue(object : Callback<UsersResponse>{
-            override fun onFailure(call: Call<UsersResponse>, t: Throwable) {
-                Toast.makeText(this@MainActivity, t.message, Toast.LENGTH_SHORT).show()
-            }
-
-            override fun onResponse(call: Call<UsersResponse>, response: Response<UsersResponse>) {
-                totalPage = response.body()?.total!!
-                val listUser = response.body()?.data
-                if (listUser!=null) {
-                    adapter.addList(listUser)
-                }
-
-                if (page == totalPage) {
-                    progressBar.visibility = View.GONE
-                } else {
-                    progressBar.visibility = View.INVISIBLE
-                }
-                isLoading = false
-                swipeRefresh.isRefreshing = false
-            }
-
-        })
-    }
-
-    private fun initView() {
-        rvUsers.setHasFixedSize(true)
-        rvUsers.layoutManager = layoutManager
-        adapter = UsersAdapter()
-        rvUsers.adapter = adapter
-    }
-
-    override fun onRefresh() {
-        adapter.clear()
-        page = 1
-        getUsers(true)
-    }
 }
