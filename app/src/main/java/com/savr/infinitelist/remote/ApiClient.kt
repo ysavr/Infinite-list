@@ -3,15 +3,15 @@ package com.savr.infinitelist.remote
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-object ApiClient {
-    private const val BASE_URL = "https://reqres.in/api/"
+class ApiClient {
+    companion object {
+        fun getInstance(): Retrofit {
+            val retrofit = Retrofit.Builder()
+                .baseUrl("https://androidride.com/")
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
 
-    val instance: Api by lazy {
-        val retrofit = Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-
-        retrofit.create(Api::class.java)
+            return retrofit
+        }
     }
 }
